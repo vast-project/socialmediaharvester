@@ -1,0 +1,8 @@
+.TweetList {
+  width: 100%;
+}
+
+.SocialCardsContainer {
+  height: 85vh;
+  overflow: auto;
+}

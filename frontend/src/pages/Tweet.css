@@ -1,0 +1,20 @@
+.Tweet {
+  overflow: auto;
+  height: 93vh;
+  padding-right: 20px;
+}
+
+.Tweet section {
+  max-width: 650px;
+}
+
+.CommentsHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 500px;
+}
+
+.RefreshIcon {
+  cursor: pointer;
+}

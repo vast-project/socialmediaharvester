@@ -1,0 +1,12 @@
+.CommentCard {
+  min-height: 100px;
+  background-color: var(--theme-color);
+  border-radius: 10px;
+  margin-bottom: 20px;
+  width: 500px;
+  padding: 15px;
+}
+
+.CommentCard .Author {
+  margin-bottom: 10px;
+}

@@ -1,0 +1,33 @@
+.SocialCard {
+  padding: 15px;
+  height: 150px;
+  width: 575px;
+  margin-bottom: 25px;
+  cursor: pointer;
+}
+
+.SocialHead {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.SocialHead span { 
+  display: flex;
+}
+
+.SocialHead strong { 
+  margin-right: 5px;
+}
+
+.ResponsesIcon {
+  margin-left: 5px;
+}
+
+.MuiPaper-root {
+  border-radius: 15px;
+}
+
+.MuiPaper-root:hover {
+  background-color: var(--theme-color);
+}

@@ -1,0 +1,146 @@
+from typing import Annotated
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+
+from fastapi import HTTPException, APIRouter, Depends
+from sql_app import persistence, schemas
+from typing import List
+import urllib.parse
+import pprint
+
+pp = pprint.PrettyPrinter(indent=4)
+
+router = APIRouter()
+security = HTTPBasic()
+# name = "B_MCristina"  # utente che usa l'applicativo
+#name = "mapto"  # utente che usa l'applicativo
+# user_func = persistence.get_user_name(name=name)
+# user = user_func[0].replace(" ", "")
+
+"""GET /settings
+GET /settings/<social_network>/<name>
+Request body: none
+Response body: {"settings": [{"network": "<social_network>", "name": "<name>", "value": "<value>"}]}
+Gets a settings variable for the authenticated user."""
+
+
+@router.get("/")
+async def get_settings():
+    values = persistence.get_setting()
+    list = []
+    for v in values:
+        # pp.pprint(v.__dict__)
+        recordObject = {
+            "network": v.s_network,
+            "name": v.appuser,
+            "key": v.key,
+            "value": v.value,
+        }
+        list.append(recordObject)
+    return {"settings": list}
+
+
+@router.get("/{social_network}/{uname}")
+async def get_settings(social_network: int, uname: str):
+    values = persistence.get_settings(uname_on_snet=uname)
+    list = []
+    for v in values:
+        # pp.pprint(v.__dict__)
+        recordObject = {
+            "network": v.s_network,
+            "name": v.appuser,
+            "key": v.key,
+            "value": v.value,
+        }
+        list.append(recordObject)
+    return {"settings": list}
+
+
+#############################inizio endpoint da documentazione ###################################################
+""" 1)PUT /settings/<social_network>/<key>/<urlencoded_value>
+Request body: none
+Response body: {"status": "<success|failure>"}
+Sets a settings variable for the authenticated user and the provided social network. This is used, e.g. for authentication."""
+# concordato con il prof che è molto meglio mettere il valore della chiave nella request body
+
+
+@router.patch("/{social_network}/{key}/")
+async def update_settings(
+    credentials: Annotated[HTTPBasicCredentials, Depends(security)],
+    social_network: int, key: str, value: str):
+    value_quote = urllib.parse.quote_plus(value)
+    if not isinstance(social_network, int) or social_network < 0:
+        raise HTTPException(status_code=400, detail="Invalid social network ID.")
+    if not isinstance(key, str) or len(key.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Invalid setting key.")
+    if not isinstance(value, str) or len(value.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Invalid setting value.")
+
+    setting = schemas.SettingUpdate(
+        s_network=social_network, appuser=user, key=key, value=value_quote
+    )
+
+    return persistence.update_setting(setting)
+
+
+## POST
+@router.post("/{social_network}/{key}/")
+async def create_settings(social_network: int, key: str, value: str):
+    value_quote = urllib.parse.quote_plus(value)
+    if not isinstance(social_network, int) or social_network < 0:
+        raise HTTPException(status_code=400, detail="Invalid social network ID.")
+    if not isinstance(key, str) or len(key.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Invalid setting key.")
+    if not isinstance(value, str) or len(value.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Invalid setting value.")
+    print(user)
+    setting = schemas.SettingCreate(
+        key=key, value=value_quote, s_network=social_network, appuser=user
+    )
+
+    return persistence.create_setting_social_user(setting)
+
+
+###DELETE
+@router.delete("/{social_network}/{key}/")
+async def delete_identity_user(social_network: int, key: str):
+    if not isinstance(social_network, int) or social_network < 0:
+        raise HTTPException(status_code=400, detail="Invalid social network ID.")
+    if not isinstance(key, str) or len(key.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Invalid setting key.")
+
+    setting = schemas.SettingDelete(s_network=social_network, appuser=user, key=key)
+
+    return persistence.delete_setting_by_key(setting)
+
+
+############ endpoint db #########
+@router.post("/create_users/", response_model=schemas.User)
+async def create_user(user: schemas.UserCreate):
+    db_user = persistence.get_user_by_user_name(username=user.username)
+    if db_user:
+        raise HTTPException(status_code=400, detail="UserName already registered")
+    return persistence.create_user(user=user)
+
+
+# output una lista di utenti salvati
+@router.get("/users/", response_model=list[schemas.User])
+async def read_users():
+    users_list = persistence.get_users()
+    return users_list
+
+
+###################### social network ####################
+
+
+@router.post("/create_social/", response_model=schemas.Social_Network)
+async def create_snetwork(sname_new: schemas.Social_NetworkCreate):
+    db_snet = persistence.get_snetwork_by_name(s_name=sname_new.s_name)
+    if db_snet:
+        raise HTTPException(status_code=400, detail="Name already registered")
+    return persistence.create_snetwork(sname=sname_new)
+
+
+@router.get("/social/")
+async def read_snetwork():
+    snet = persistence.get_snetwork()
+    return snet

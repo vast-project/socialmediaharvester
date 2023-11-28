@@ -1,0 +1,74 @@
+version: '3.9'
+
+services:
+  postgres:
+    container_name: islab_tweet_db
+    image: postgres:15.1 # 14.5
+    environment:
+      - POSTGRES_DB=islab_tweet
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=xxxxxx
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - ./db/data:/var/lib/postgresql/data/
+      - ./db/init:/docker-entrypoint-initdb.d/:ro
+    ports:
+      - 5532:5432
+    # network_mode: host
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d islab_tweet -U postgres"]
+
+  tweetpy:
+    container_name: islab_tweet_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      # - ./config.ini:/config.ini:ro
+      # - ./data:/data      
+      #- ./arguments-test.tsv:/data/arguments-test.tsv:ro
+      # - ./init.py:/app/init.py
+      - ./backend:/app/
+      # - ./main.py:/app/main.py
+      # - ./visualize.py:/app/visualize.py
+      # - ./sql_app:/app/sql_app/
+      # - ./router:/app/router/
+      # - ./settings:/app/settings/
+      - ./data:/data/
+    # network_mode: host
+    ports:
+      - 8090:8000
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget -nv -t1 http://localhost:8000 || exit 1"]
+    # command: sh -c "tail -f /dev/null"
+    working_dir: /app
+    # command: sh -c "uvicorn main:app --host 0.0.0.0 --reload"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  nginx:
+    container_name: islab_tweet_web
+    image: nginx:1.25-alpine-slim
+    ports:
+      - 8091:80
+    volumes: 
+      - ./dist:/usr/share/nginx/html:ro
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget -nv -t1 --spider http://localhost || exit 1"]
+
+  # https://hub.docker.com/r/trammel/docker-with-supercronic
+  cron:
+    container_name: islab_tweet_cron
+    image: trammel/docker-with-supercronic
+    environment:
+      # - CRONTAB=* * * * * echo "hello" 
+      - TZ=Rome/Italy
+      - CRONTAB=*   8   *   *   *   curl http://$USER@$HOST:8090/post/flush?network_id=1
+    depends_on:
+      tweetpy:
+        condition: service_healthy
+    
