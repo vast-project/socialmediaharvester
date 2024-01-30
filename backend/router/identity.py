@@ -1,10 +1,7 @@
 from base64 import b64encode
 
-from fastapi import FastAPI, HTTPException, APIRouter, Body
-from sqlalchemy.orm import Session  # type: ignore
-from sql_app import persistence, models, schemas, twitter_client
-from sql_app.database import SessionLocal, engine
-from fastapi.encoders import jsonable_encoder
+from fastapi import HTTPException, APIRouter, Body
+from sql_app import persistence
 
 
 router = APIRouter()

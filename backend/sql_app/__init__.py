@@ -1,1 +1,1 @@
-from . import social, persistence, schemas
+from . import social, persistence, schemas  # noqa

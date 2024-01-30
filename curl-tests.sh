@@ -1,3 +1,5 @@
+# Twitter
+
 curl -X 'GET' \
   'http://127.0.0.1:8000/post/aut_appstatus/' \
   -H 'accept: application/json'
@@ -33,7 +35,7 @@ curl -X 'GET' \
   -H 'accept: application/json'
 
 curl -X 'POST' \
-  'http://172.20.27.81:8090/post/content/Hello%20world%21%20This%20is%20my%20first%20tweet?date_sched=2023-06-07&social_network_id=1' \
+  'http://172.20.27.81:8090/post/content/Hello%20world%21%20This%20is%20my%20first%20tweet?date_sched=2023-06-07&snet_id=1' \
   -H 'accept: application/json' \
   -H 'Authorization: Basic d2l0dGVydGVzdDU1NTU1OmE=' \
   -H 'Content-Type: application/json' \
@@ -43,7 +45,7 @@ curl -X 'POST' \
 ]'
 
 curl -X 'POST' \
-  'http://wittertest55555@172.20.27.81:8090/post/content/Hello%20world%21%20This%20is%20my%20first%20tweet?date_sched=2023-06-07&social_network_id=1' \
+  'http://wittertest55555@172.20.27.81:8090/post/content/Hello%20world%21%20This%20is%20my%20first%20tweet?date_sched=2023-06-07&snet_id=1' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '[{}]'
@@ -77,5 +79,27 @@ curl -X 'POST' \
 ]'
 
 curl -X 'POST' \
-  'http://mapto@localhost:8090/post/poll/content/Which%20values%20do%20you%20identify%20in%20this%20text%3F%250a%22Yet%20I%20hold%20that%20completely%20erroneous%20views%20should%20be%20shunned%22%250a-%20De%20revolutionibus%20orbium%20coelestium%2C%20N.%20Copernicus%250a%23ScientificRevolution%20%40vastproject%20%40IslabUnimi?opt1=Freedom&opt2=Demonstrable%20Truth&opt3=Tolerance&opt4=Kindness&duration_minute=10080&social_network_id=1' \
+  'http://mapto@localhost:8090/post/poll/content/Which%20values%20do%20you%20identify%20in%20this%20text%3F%250a%22Yet%20I%20hold%20that%20completely%20erroneous%20views%20should%20be%20shunned%22%250a-%20De%20revolutionibus%20orbium%20coelestium%2C%20N.%20Copernicus%250a%23ScientificRevolution%20%40vastproject%20%40IslabUnimi?opt1=Freedom&opt2=Demonstrable%20Truth&opt3=Tolerance&opt4=Kindness&duration_minute=10080&snet_id=1' \
   -H 'accept: application/json'
+
+
+# Masto
+
+curl -X 'GET' \
+  'http://localhost:8090/fetch/111766601426625293' \
+  -H 'accept: application/json'
+
+curl -X 'GET' \
+  'http://localhost:8090/fetch/111721301842093581' \
+  -H 'accept: application/json'
+
+curl -X 'GET' \
+  'http://localhost:8090/fetch/111732314984432852' \
+  -H 'accept: application/json'
+
+# Non-VAST
+
+curl -X 'GET' \
+  'http://localhost:8090/fetch/111772179569576421' \
+  -H 'accept: application/json'
+

@@ -1,25 +1,41 @@
+import os
+
+VERSION = "0.2.0"
+
+DEBUG = True
+
 MEDIA_DIR = "/data"
 
-TWITTER = 1
-# This dictionary contains expected length of keys for validation
-TWITTER_KEYS = {
-    "access_token": 50,
-    "access_token_secret": 45,
-    "api_key": 25,
-    "api_key_secret": 50,
-    "bearer_token": 116,
-    "client_ID": 34,
-    "client_Secret": 50,
-}
-
-TWITTER_MAX_LEN = 280
-
-TWITTER_MAX_POLL_DURATION = 7 * 24 * 60
+# Social network also defined in ./db/init
+SOCIAL_NETWORK_CLASS = "twitter_client.TwitterClient"
+SOCIAL_NETWORK_CLASS = "masto_client.MastoClient"
+# SOCIAL_NETWORK_CLASS = "dummy_client.DummyClient"
 
 # da salvare i dati del db in un file di configurazione
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:xxxxx@localhost:5532/islab_tweet"
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:xxxxx@172.20.27.81:5532/islab_tweet"
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:xxxxx@tacitserver:5532/islab_tweet"
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:xxxxx@islab_tweet_db/islab_tweet"
+# User also defined in docker-compose.yml and ./db/init
+SQLALCHEMY_DATABASE_URL = (
+    "postgresql://postgres:xxxxxx@postgres/socialmediaharvester"
+    # "postgresql://postgres:xxxxxx@localhost:5532/socialmediaharvester"
+)
 
-VERSION = "0.1.2"
+SERVER_SETTINGS = {
+    # Twitter
+    1: {
+        "MAX_LEN": 280,
+        # in minutes: https://developer.twitter.com/en/docs/twitter-api/data-dictionary/object-model/poll
+        "MAX_POLL_DURATION": 7 * 24 * 60,
+    },
+    # fediscience.org
+    2: {
+        "MAX_LEN": 500,
+        # in seconds: https://mastodonpy.readthedocs.io/en/stable/05_statuses.html#make-poll
+        "MAX_POLL_DURATION": 7 * 24 * 60 * 60,
+    },
+}
+
+MASTO_APPNAME = "github.com/vast-project/socialmediaharvester"
+MASTO_FILE = os.path.abspath("socialmediaharvester_mastodon.secret")
+TOKEN_FILE = os.path.abspath("socialmediaharvester_mastodon.token")

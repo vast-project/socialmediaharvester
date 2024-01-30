@@ -1,20 +1,22 @@
-from typing import Dict
+"""OBSOLETE: Twitter/X API has been disabled"""
+
+from typing import Dict, List
 
 import json
 
+from .abstract_client import AbstractClient
 import tweepy  # type: ignore
 from tweepy.errors import TweepyException  # type: ignore
 
-from settings import TWITTER_KEYS
 from util import urlencode, urldecode
 
 from .database import SessionLocal
-from . import twitter_conn, persistence, models
+from . import twitter_conn, persistence, models, media
 
 # pp = pprint.PrettyPrinter(indent=4)  # uso per debug
 
 
-class TwitterClient:
+class TwitterClient(AbstractClient):
     sn_name = "TWITTTER"
     sn_id = 1
 
@@ -22,43 +24,6 @@ class TwitterClient:
         self.setting = twitter_conn.TwitterEndpoint(settings_map)
         self.api = self.setting.get_setting()  # Twitter API v1.1
         self.client = self.setting.get_client()  # Twitter API v2.0
-
-    def insert_all_pending_tweets(self, user: str, status: int = 2):
-        db = SessionLocal()
-        dbpost = (
-            db.query(models.Post.content, models.Post.id)
-            .filter(models.Post.status == status, models.Post.author == user)
-            .all()
-        )
-        media = []
-        for post in dbpost:
-            message = post[0]
-            idpostindb = post[1]
-            content = message
-            content_diz = json.loads(content)
-            # print(content_diz)
-
-            if content_diz["type"] == "post":
-                print(content_diz["content"]["text"])
-                recordObject = self.insert_tweets(
-                    status=2,
-                    conten_str=urldecode(content_diz["content"]["text"]),
-                    idpost=idpostindb,
-                )
-            else:
-                print(content_diz["content"]["text"])
-                recordObject = self.insert_poll(
-                    idpost=idpostindb,
-                    status=2,
-                    list_opt=[
-                        urldecode(o) for o in content_diz["content"]["poll_options"]
-                    ],
-                    text_poll=urldecode(content_diz["content"]["text"]),
-                    duration_minutes=int(content_diz["content"]["duration_minute"]),
-                )
-
-            media.append(recordObject)
-        return media
 
     def insert_tweets(self, status: int, conten_str: str, idpost=int):
         # parametri satus=2 -->Scheduled for publication
@@ -113,7 +78,10 @@ class TwitterClient:
         # allora faccio aggiornamento dello stato e id_on_network del post
         # id_on_network da salvare sul db
         persistence.update_post_status_id_on_network(
-            idpost=idpost, status=status + 1, id_on_net=new_tweet.data["id"]
+            idpost=idpost,
+            status=status + 1,
+            id_on_net=new_tweet.data["id"],
+            s_network=self.sn_id,
         )
 
         return list_res
@@ -151,6 +119,7 @@ class TwitterClient:
                 idpost=idpost,
                 status=status + 1,
                 id_on_net=id_on_tweet,
+                s_network=self.sn_id,
             )
 
             recordObject = {
@@ -178,49 +147,49 @@ class TwitterClient:
             "name": public_tweets[0].user.screen_name,
         }
 
-    def print_search_tweets(self, q_str: str):
-        try:
-            stw = self.api.search_tweets
-        except TweepyException as e:
-            return {"error": str(e)}
+    # def print_search_tweets(self, q_str: str):
+    #     try:
+    #         stw = self.api.search_tweets
+    #     except TweepyException as e:
+    #         return {"error": str(e)}
 
-        public_tweets = tweepy.Cursor(
-            stw, q=q_str, result_type="mixed", tweet_mode="extended"
-        ).items(10)
+    #     public_tweets = tweepy.Cursor(
+    #         stw, q=q_str, result_type="mixed", tweet_mode="extended"
+    #     ).items(10)
 
-        result = []
-        for tweet in public_tweets:
-            print("@" + tweet.user.screen_name)
-            tweet_text = tweet.full_text
-            print(tweet_text)
-            print(f"\nRicerca per -->  {q_str}\n")
-            result += [{"text": tweet_text, "user": "@" + tweet.user.screen_name}]
-        return result
+    #     result = []
+    #     for tweet in public_tweets:
+    #         print("@" + tweet.user.screen_name)
+    #         tweet_text = tweet.full_text
+    #         print(tweet_text)
+    #         print(f"\nRicerca per -->  {q_str}\n")
+    #         result += [{"text": tweet_text, "user": "@" + tweet.user.screen_name}]
+    #     return result
 
-    def print_search_byuser(self, usr: str, max_tweet: int):
-        # ricerca per utente
-        user = usr
-        limit = max_tweet
-        try:
-            tweets = self.api.user_timeline(
-                screen_name=user, count=limit, tweet_mode="extended"
-            )
-        except TweepyException as e:
-            return {"error": str(e)}
+    # def print_search_byuser(self, usr: str, max_tweet: int):
+    #     # ricerca per utente
+    #     user = usr
+    #     limit = max_tweet
+    #     try:
+    #         tweets = self.api.user_timeline(
+    #             screen_name=user, count=limit, tweet_mode="extended"
+    #         )
+    #     except TweepyException as e:
+    #         return {"error": str(e)}
 
-        result = []
-        for tweet in tweets:
-            r = {
-                "user": "@" + tweet.user.screen_name,
-                "text": tweet.full_text,
-                "*": "*******************",
-            }
-            result.append(r)
-        return result
+    #     result = []
+    #     for tweet in tweets:
+    #         r = {
+    #             "user": "@" + tweet.user.screen_name,
+    #             "text": tweet.full_text,
+    #             "*": "*******************",
+    #         }
+    #         result.append(r)
+    #     return result
 
-    def status_retweeted(self, id_num):
+    def status_retweeted(self, id_on_net):
         # the ID of the status
-        id = id_num
+        id = id_on_net
         try:
             status = self.api.get_status(id)
         except TweepyException as e:
@@ -233,134 +202,134 @@ class TwitterClient:
             + str(retweet_count)
         )
 
-    def put_userid(self, usr: str):
-        # using user.id
-        put_your_screen_name = usr
-        try:
-            user = self.api.get_user(screen_name=put_your_screen_name)
-        except TweepyException as e:
-            return {"error": str(e)}
+    # def put_userid(self, usr: str):
+    #     # using user.id
+    #     put_your_screen_name = usr
+    #     try:
+    #         user = self.api.get_user(screen_name=put_your_screen_name)
+    #     except TweepyException as e:
+    #         return {"error": str(e)}
 
-        result = [{"ID": user.id, "user": "@" + user.name}]
-        return result
+    #     result = [{"ID": user.id, "user": "@" + user.name}]
+    #     return result
 
-    def get_poll_from_user(self, username: str):
-        # esempio trovato in tweepypoll e su https://developer.twitter.com
-        # prende tutti i poll che trova di un determinato utente
-        users = []
-        try:
-            users = self.client.get_users(
-                usernames=username, user_fields=["id"]
-            )  # test print (users, "" , username)
-        except TweepyException as e:
-            return {"error": str(e)}
-        # costruisco lista di id di sondaggi/pool
+    # def get_poll_from_user(self, username: str):
+    #     # esempio trovato in tweepypoll e su https://developer.twitter.com
+    #     # prende tutti i poll che trova di un determinato utente
+    #     users = []
+    #     try:
+    #         users = self.client.get_users(
+    #             usernames=username, user_fields=["id"]
+    #         )  # test print (users, "" , username)
+    #     except TweepyException as e:
+    #         return {"error": str(e)}
+    #     # costruisco lista di id di sondaggi/pool
 
-        if users is not None and any(users):
-            print(any(users))
-            for user in users.data:  # type: ignore
-                user_id = user.id
-                # print (user_id, "\n")
-        # Get tweets -- funzione get_tweets su client.py
-        try:
-            tweets = self.client.get_users_tweets(
-                id=user_id,
-                max_results=100,
-                exclude=["retweets", "replies"],
-                expansions="attachments.poll_ids",
-            )
-        except TweepyException as e:
-            return {"error": str(e)}
+    #     if users is not None and any(users):
+    #         print(any(users))
+    #         for user in users.data:  # type: ignore
+    #             user_id = user.id
+    #             # print (user_id, "\n")
+    #     # Get tweets -- funzione get_tweets su client.py
+    #     try:
+    #         tweets = self.client.get_users_tweets(
+    #             id=user_id,
+    #             max_results=100,
+    #             exclude=["retweets", "replies"],
+    #             expansions="attachments.poll_ids",
+    #         )
+    #     except TweepyException as e:
+    #         return {"error": str(e)}
 
-        # Get -- tweet_id che contengono sondaggi
-        tweet_id_with_poll = []
-        for tweet in tweets.data:
-            if "attachments" in tweet.data.keys():
-                # print("Id_su:") - print(tweet.id)
-                tweet_id_with_poll.append(tweet.id)
-            else:
-                pass
-        rtn = []
-        for tweet_id in tweet_id_with_poll:
-            print("Id_giu:")
-            print(tweet_id)
-            try:
-                res_tweet = self.client.get_tweets(
-                    tweet_id,
-                    expansions=["attachments.poll_ids", "author_id"],
-                    poll_fields=["duration_minutes", "end_datetime", "voting_status"],
-                    # dal sito https://developer.twitter.com/en/docs/twitter-api/tweets/search/api-reference/get-tweets-search-recent
-                    # enum (duration_minutes, end_datetime, id, options, voting_status)
-                    # curl --request GET 'https://api.twitter.com/2/tweets?ids=1199786642791452673&expansions=attachments.poll_ids&poll.fields=duration_minutes,end_datetime,id,options,voting_status' --header 'Authorization: Bearer $BEARER_TOKEN'
-                )
-            except TweepyException as e:
-                return {"error": str(e)}
-            res = res_tweet.includes  # recupero i risultati
+    #     # Get -- tweet_id che contengono sondaggi
+    #     tweet_id_with_poll = []
+    #     for tweet in tweets.data:
+    #         if "attachments" in tweet.data.keys():
+    #             # print("Id_su:") - print(tweet.id)
+    #             tweet_id_with_poll.append(tweet.id)
+    #         else:
+    #             pass
+    #     rtn = []
+    #     for tweet_id in tweet_id_with_poll:
+    #         print("Id_giu:")
+    #         print(tweet_id)
+    #         try:
+    #             res_tweet = self.client.get_tweets(
+    #                 tweet_id,
+    #                 expansions=["attachments.poll_ids", "author_id"],
+    #                 poll_fields=["duration_minutes", "end_datetime", "voting_status"],
+    #                 # dal sito https://developer.twitter.com/en/docs/twitter-api/tweets/search/api-reference/get-tweets-search-recent
+    #                 # enum (duration_minutes, end_datetime, id, options, voting_status)
+    #                 # curl --request GET 'https://api.twitter.com/2/tweets?ids=1199786642791452673&expansions=attachments.poll_ids&poll.fields=duration_minutes,end_datetime,id,options,voting_status' --header 'Authorization: Bearer $BEARER_TOKEN'
+    #             )
+    #         except TweepyException as e:
+    #             return {"error": str(e)}
+    #         res = res_tweet.includes  # recupero i risultati
 
-            try:
-                res["polls"][0]
-            except KeyError:
-                raise TypeError("Provided tweet does not contain a poll!")
+    #         try:
+    #             res["polls"][0]
+    #         except KeyError:
+    #             raise TypeError("Provided tweet does not contain a poll!")
 
-            poll = res["polls"][0]  # print (res)
-            duration = poll["duration_minutes"]
-            date = poll["end_datetime"]
-            status = poll["voting_status"]
-            options = poll["options"]
-            text = res_tweet.data[0]["text"]
-            # test print("\n", res_tweet)
-            user = res["users"][0].username
+    #         poll = res["polls"][0]  # print (res)
+    #         duration = poll["duration_minutes"]
+    #         date = poll["end_datetime"]
+    #         status = poll["voting_status"]
+    #         options = poll["options"]
+    #         text = res_tweet.data[0]["text"]
+    #         # test print("\n", res_tweet)
+    #         user = res["users"][0].username
 
-            total = 0
-            for opt in options:
-                total = total + opt["votes"]
+    #         total = 0
+    #         for opt in options:
+    #             total = total + opt["votes"]
 
-            tweet_data = {
-                "text": text,
-                "duration": duration,
-                "date": date,
-                "status": status,
-                "poll options": options,
-                "user": user,
-                "total": total,
-            }
-            rtn.append(tweet_data)
-        return rtn
+    #         tweet_data = {
+    #             "text": text,
+    #             "duration": duration,
+    #             "date": date,
+    #             "status": status,
+    #             "poll options": options,
+    #             "user": user,
+    #             "total": total,
+    #         }
+    #         rtn.append(tweet_data)
+    #     return rtn
 
-    # risposte ad un tweet
-    def get_all_answer(self, username, tweetid):
-        replies = []
-        try:
-            stw = self.api.search_tweets
-        except TweepyException as e:
-            return {"error": str(e)}
-        for tweet_all in tweepy.Cursor(
-            stw,
-            q="to:" + username,
-            result_type="recent",
-            tweet_mode="extended",
-        ).items(1000):
-            if hasattr(tweet_all, "in_reply_to_status_id_str"):
-                if tweet_all.in_reply_to_status_id_str == tweetid:
-                    tweet_data = {
-                        "id": tweet_all.id,
-                        "full_text": tweet_all.full_text,
-                        "created_at": tweet_all.created_at,
-                        "user_response_id": tweet_all.user.id,
-                        "user_response_name": tweet_all.user.name,
-                    }
-                    replies.append(tweet_data)
-        return replies
+    # def get_all_answer(self, username, tweetid):
+    #     """ risposte ad un tweet """
+    #     replies = []
+    #     try:
+    #         stw = self.api.search_tweets
+    #     except TweepyException as e:
+    #         return {"error": str(e)}
+    #     for tweet_all in tweepy.Cursor(
+    #         stw,
+    #         q="to:" + username,
+    #         result_type="recent",
+    #         tweet_mode="extended",
+    #     ).items(1000):
+    #         if hasattr(tweet_all, "in_reply_to_status_id_str"):
+    #             if tweet_all.in_reply_to_status_id_str == tweetid:
+    #                 tweet_data = {
+    #                     "id": tweet_all.id,
+    #                     "full_text": tweet_all.full_text,
+    #                     "created_at": tweet_all.created_at,
+    #                     "user_response_id": tweet_all.user.id,
+    #                     "user_response_name": tweet_all.user.name,
+    #                 }
+    #                 replies.append(tweet_data)
+    #     return replies
 
-    # esempio trovato in https://www.thinkingondata.com/exploring-the-replies-from-a-question-in-twitter-using-python-and-r/
-    def get_quote_post(self, idpost: int):
-        try:
-            tweet = self.api.get_status(idpost, tweet_mode="extended")
-        except TweepyException as e:
-            return {"error": str(e)}
-        # Numero di citazioni del tweet
-        quote_count = tweet.quote_count
-        return quote_count
+    # # esempio trovato in https://www.thinkingondata.com/exploring-the-replies-from-a-question-in-twitter-using-python-and-r/
+    # def get_quote_post(self, idpost: int):
+    #     try:
+    #         tweet = self.api.get_status(idpost, tweet_mode="extended")
+    #     except TweepyException as e:
+    #         return {"error": str(e)}
+    #     # Numero di citazioni del tweet
+    #     quote_count = tweet.quote_count
+    #     return quote_count
 
     def get_all_answer_post(self, idpost: int, delall: bool = True):
         # 1)cancello tutte le risposte salvate e le riscarico da zero
@@ -479,10 +448,10 @@ class TwitterClient:
         return None
 
     # get poll by id tweet
-    def get_poll_from_id(self, post: int):
-        del_answer = persistence.delete_answer(idpost=post)
+    def get_poll_from_id(self, post_id: int):
+        del_answer = persistence.delete_answer(idpost=post_id)
         tweetid = (
-            SessionLocal().query(models.Post.id_on_network).filter_by(id=post).scalar()
+            SessionLocal().query(models.Post.id_on_network).filter_by(id=post_id).scalar()
         )
         try:
             res_tweet = self.client.get_tweets(
@@ -504,7 +473,6 @@ class TwitterClient:
         date = poll["end_datetime"]
         status = poll["voting_status"]
         options = poll["options"]
-        text = res_tweet.data[0]["text"]
         print(res_tweet.data[0])
         # test print("\n", res_tweet)
         user = res["users"][0].username
@@ -515,7 +483,7 @@ class TwitterClient:
             total = total + opt["votes"]
 
         tweet_data = {
-            # "text": text,
+            # "text": res_tweet.data[0]["text"],
             "duration": duration,
             "date": str(date),
             "status": status,
@@ -529,7 +497,7 @@ class TwitterClient:
         content_text = urlencode(tweet_data_json, safe="/")
         # insert poll vote
         tweetdata = persistence.insert_answer_post(
-            idpost=post,
+            idpost=post_id,
             content=content_text,
             author=user,
             id_on_network=str(tweetid),
@@ -537,9 +505,9 @@ class TwitterClient:
             reply_to=None,
         )
         #
-        self.get_all_answer_post(idpost=post, delall=False)
+        self.get_all_answer_post(idpost=post_id, delall=False)
         # get all answer
-        replies = persistence.get_answer_post(idpost=post)
+        replies = persistence.get_answer_post(idpost=post_id)
         replies_all = []
         for r in replies:
             decoded_str = urldecode(r.content)
@@ -547,7 +515,7 @@ class TwitterClient:
             tdata = {
                 "posts": [
                     {
-                        "post_id": str(post),
+                        "post_id": str(post_id),
                         "network": "twitter",
                         "responses": [
                             {
@@ -569,39 +537,39 @@ class TwitterClient:
     "responses": [{"response_id": "<response_id>", "content": "<text>", "children": ["<response_id>"]}]}"}
     Get the responses to the posts matching the filter from the request URI """
 
-    def get_all_retweet_post(self, tweetid, post: int):
-        try:
-            retweets = self.api.get_retweets(tweetid)
-        except TweepyException as e:
-            return {"error": str(e)}
-        for retweet in retweets:
-            # if retweet.user.id==49288229:
-            # pp.pprint(retweet.__dict__)
-            print(
-                f"{tweetid}, {retweet.id}, {retweet.user.id}, data:{retweet.created_at}"
-            )
-            data_ora = retweet.created_at
-            dta_created_at = data_ora.strftime("%Y-%m-%d")
-            try:
-                t = self.api.get_status(retweet.id)
-            except TweepyException as e:
-                return {"error": str(e)}
-            u = t.user
-            user_name = u.screen_name
-            tweet_data_json = json.dumps("#retweet#")
-            content_text = urlencode(tweet_data_json)
-            tweet_data = persistence.insert_answer_post(
-                idpost=post,
-                content=content_text,
-                author=user_name,
-                id_on_network=str(retweet.id),
-                publication_date=dta_created_at,
-                reply_to=None,
-            )
+    # def get_all_retweet_post(self, tweetid, post: int):
+    #     try:
+    #         retweets = self.api.get_retweets(tweetid)
+    #     except TweepyException as e:
+    #         return {"error": str(e)}
+    #     for retweet in retweets:
+    #         # if retweet.user.id==49288229:
+    #         # pp.pprint(retweet.__dict__)
+    #         print(
+    #             f"{tweetid}, {retweet.id}, {retweet.user.id}, data:{retweet.created_at}"
+    #         )
+    #         data_ora = retweet.created_at
+    #         dta_created_at = data_ora.strftime("%Y-%m-%d")
+    #         try:
+    #             t = self.api.get_status(retweet.id)
+    #         except TweepyException as e:
+    #             return {"error": str(e)}
+    #         u = t.user
+    #         user_name = u.screen_name
+    #         tweet_data_json = json.dumps("#retweet#")
+    #         content_text = urlencode(tweet_data_json)
+    #         tweet_data = persistence.insert_answer_post(
+    #             idpost=post,
+    #             content=content_text,
+    #             author=user_name,
+    #             id_on_network=str(retweet.id),
+    #             publication_date=dta_created_at,
+    #             reply_to=None,
+    #         )
 
-        return None
+    #     return None
 
-    def get_post_by_netid(self, tweetid):
+    def get_post_by_netid(self, tweetid: str, user: str):
         expansions = [
             "attachments.poll_ids",
             "attachments.media_keys",
@@ -645,12 +613,36 @@ class TwitterClient:
             "text",
             "withheld",
         ]
-        return self.client.get_tweet(
+        data = self.client.get_tweet(
             tweetid,
             expansions=expansions,
             media_fields=media_fields,
             poll_fields=poll_fields,
             tweet_fields=tweet_fields,
+        )
+
+        content_text = data[0]["text"]
+        if not content_text:
+            content_text = data[0]["tweets"][0]["text"]
+        content = {"type": "post", "content": {"text": content_text}}
+
+        image_files = []
+        if data.includes and "media" in data.includes:
+            for m in data.includes["media"]:
+                fname = f'{m["media_key"]}-{m["url"].split("/")[-1]}'
+                image_files += [media.download(m["url"], fname)]
+        publ_date = data[0]["created_at"].date()
+
+        if data.includes and "polls" in data.includes:
+            options: List[str] = [
+                o["label"] for o in data.includes["polls"][0]["options"]
+            ]
+            content["content"]["poll_options"] = options  # type: ignore
+            content["type"] = "poll"
+            # TODO: duration seems to be missing
+
+        return persistence.reflect_post_social_user(
+            tweetid, json.dumps(content), image_files, publ_date, user
         )
 
     def get_status(self):

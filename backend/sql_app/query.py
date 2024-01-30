@@ -2,7 +2,6 @@
 If a routine needs to handle its own session,
 rather put it in persistence.py"""
 
-from datetime import date
 
 from sqlalchemy.orm import Session  # type: ignore
 

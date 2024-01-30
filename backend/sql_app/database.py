@@ -3,11 +3,13 @@ from sqlalchemy.ext.declarative import declarative_base  # type: ignore
 from sqlalchemy.orm import sessionmaker  # type: ignore
 
 # da salvare i dati del db in un file di configurazione
-from settings import SQLALCHEMY_DATABASE_URL
+from settings import SQLALCHEMY_DATABASE_URL, DEBUG
 
 """The first step is to create a SQLAlchemy "engine".
 We will later use this engine in other places."""
-engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_size=10, max_overflow=20)
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, pool_size=10, max_overflow=20, echo=DEBUG
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

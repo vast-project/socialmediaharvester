@@ -1,4 +1,7 @@
-"""Web service endpoints responsible for post (and poll) management"""
+"""Web service endpoints responsible for post (and poll) management.
+Whereas there is some functionality for support of multiple social networks,
+the hard reality is that currently only one is functional,
+so simplified interfaces are used."""
 from typing import List, Optional
 
 from datetime import date, datetime
@@ -25,24 +28,24 @@ from sql_app import persistence, schemas, social
 router = APIRouter()
 security = HTTPBasic()
 
-from settings import TWITTER_MAX_LEN, TWITTER_MAX_POLL_DURATION
+from settings import SERVER_SETTINGS
 
 
-# @router.get("/network/{network}/schedule/")
+# @router.get("/network/{snet_id}/")
 @router.get("/")
 # @router.get("/schedule/")
 async def get_posts(
-    credentials: HTTPBasicCredentials = Depends(security), network_id: int = 1
+    credentials: HTTPBasicCredentials = Depends(security), snet_id: int = 2
 ):
     """Get all posts managed by our users. This is different from getting the respective responses."""
-    values = persistence.get_post_by_status(credentials.username)  # status=status)
+    values = persistence.get_posts_by_status(credentials.username)  # status=status)
     list = []
     for v in values:
         data = json.loads(v.content)
         recordObject = {
             "post_id": v.id,
             "author": v.author,
-            "network": persistence.get_network_name(network_id)["s_name"],
+            "network": persistence.get_network_name(snet_id)["s_name"],
             "status": persistence.get_status_by_id(idstatus=v.status)["status_name"],
             "text": urldecode(data["content"]["text"]),
             "answers": 0,  # TODO
@@ -68,16 +71,16 @@ async def get_status(credentials: HTTPBasicCredentials = Depends(security)):
 
 
 ###################
-# @router.post("/network/{social_network}/content/{content}")
-# @router.post("/network/{social_network}/content/{content}/due/{date_sched}")
-@router.post("/content/{content}/due/{date_sched}")
+# @router.post("/network/{snet_id}/content/{content}")
+# @router.post("/network/{snet_id}/content/{content}/due/{date_sched}")
 @router.post("/content/{content}")
+@router.post("/content/{content}/due/{date_sched}")
 async def post_content(
     content: str,
     date_sched: Optional[date] = None,
     files: Optional[List[schemas.ImageBase]] = None,
     credentials: HTTPBasicCredentials = Depends(security),
-    social_network_id: int = 1,
+    snet_id: int = 2,
 ):
     """
     - content: test of post, use %0a for new line
@@ -85,9 +88,10 @@ async def post_content(
     - Date format ISO: YYYY-MM-DD
     """
     content_text = urlencode(content)
-    if len(content_text) > TWITTER_MAX_LEN:
+    if len(content_text) > SERVER_SETTINGS[snet_id]["MAX_LEN"]:
         raise ValueError(
-            f"Content too long. A maximum of {TWITTER_MAX_LEN} characters is allowed."
+            "Content too long."
+            f"A maximum of {SERVER_SETTINGS[snet_id]['MAX_LEN']} characters is allowed."
         )
 
     print(content_text)
@@ -109,11 +113,13 @@ async def post_content(
         pathimages=imgs,
         sched_date=date_sched,
         user=credentials.username,
+        s_net=snet_id,
     )
     return JSONResponse(content=jsonable_encoder(result))
 
 
-# @router.post("/poll/network/{social_network_id}/content/{content}/due/{date_sched}")
+# @router.post("/poll/network/{snet_id}/content/{content}")
+# @router.post("/poll/network/{snet_id}/content/{content}/due/{date_sched}")
 @router.post("/poll/content/{content}")
 @router.post("/poll/content/{content}/due/{date_sched}")
 async def post_poll_content(
@@ -123,8 +129,8 @@ async def post_poll_content(
     opt3: Optional[str] = None,
     opt4: Optional[str] = None,
     date_sched: Optional[date] = None,
-    duration_minute: int = TWITTER_MAX_POLL_DURATION,
-    social_network_id: int = 1,
+    duration_minute: int = 0,
+    snet_id: int = 2,
     credentials: HTTPBasicCredentials = Depends(security),
 ):
     poll_options = [urldecode(o) for o in [opt1, opt2, opt3, opt4] if o]
@@ -136,7 +142,9 @@ async def post_poll_content(
         "content": {
             "text": content_text,
             "poll_options": poll_options,
-            "duration_minute": duration_minute,
+            "duration_minute": duration_minute
+            if duration_minute > 0
+            else SERVER_SETTINGS[snet_id]["MAX_POLL_DURATION"],
         },
     }
 
@@ -157,6 +165,7 @@ async def post_poll_content(
         user=credentials.username,
         pathimages=[],
         sched_date=date_sched,
+        s_net=snet_id,
     )
     return result
 
@@ -226,27 +235,27 @@ async def delete_post(idpost: int):
 # @router.get("/network/{network_id}/flush")
 @router.get("/flush")
 async def flush_post(
-    network_id: int = 1, credentials: HTTPBasicCredentials = Depends(security)
+    snet_id: int = 2, credentials: HTTPBasicCredentials = Depends(security)
 ):
     """
-    When network is ommitted, it defaults to Twitter.
+    When network is ommitted, it defaults to Mastodon.
     """
-    db_post = persistence.get_post_by_status(credentials.username, status=2)
+    db_post = persistence.get_posts_by_status(
+        credentials.username, status=2, snet_id=snet_id
+    )
     if not db_post:
         return {"message": f"Nessun post con status 2!!"}
     return {
         "message": social.insert_all_pending_tweets(
-            snet_id=network_id, status=2, user=credentials.username
+            snet_id=snet_id, status=2, user=credentials.username
         )
     }
 
 
 # scarica tutte le risposte a un determinato tweet
-# @router.get("/network/{network}/post/{post_id}/responses/")
 @router.get("/post/{post_id}/responses/")
 async def read_answer_tweet(
     post_id: int,
-    network_id: int = 1,
     credentials: HTTPBasicCredentials = Depends(security),
 ):
     """GET /post/responses
@@ -259,31 +268,25 @@ async def read_answer_tweet(
         return {"message": "no tweet ID parameter"}
     return {
         "message": social.get_all_answer_post(
-            snet_id=network_id, tweetid=post_id, user=credentials.username
+            post_id=post_id, user=credentials.username
         )
     }
 
 
-# @router.get("/network/{network}/poll/{post_id}/responses/")
 @router.get("/poll/{post_id}/responses/")
 async def read_answer_poll(
     post_id: int,
-    network_id: int = 1,
     credentials: HTTPBasicCredentials = Depends(security),
 ):
-    """When network is ommitted, it defaults to Twitter."""
+    """When network is ommitted, it defaults to Mastodon."""
     return {
-        "message": social.get_poll_from_id(
-            snet_id=network_id, tweetid=post_id, user=credentials.username
-        )
+        "message": social.get_poll_from_id(post_id=post_id, user=credentials.username)
     }
 
 
-# @router.get("/network/{network}/{post_id}/responses_inDB/")
 @router.get("/{post_id}/responses_inDB/")
 async def read_answer_post(post_id: int):
-    """When network is ommitted, it defaults to Twitter."""
-    values = persistence.get_answer_post(idpost=post_id)
+    values = persistence.get_answers_for_post(post_id)
     list = []
     for v in values:
         recordObject = {
@@ -311,9 +314,8 @@ async def read_answer_post(post_id: int):
     if images:
         post["images"] = images
 
-    # TODO: Poll results
-    poll_results = {"yes": 10, "no": 5}
-    # poll_results = persistence.get_answer_post()
+    # TODO: Test, because seems not to extract the response
+    poll_results = persistence.get_answers_for_post(post_id)
     if poll_results:
         post["poll_options"] = poll_results
 

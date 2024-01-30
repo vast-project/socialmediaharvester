@@ -82,6 +82,10 @@ class Post(Base):
     id = Column(Integer, primary_key=True)
     s_network = Column(Integer, ForeignKey("socialcampaigns.social_network.id"))
     id_on_network = Column(String)
+    # Examples:
+    # {"type": "poll", "content": {"content": "Yes+or+No%3F", "poll_options": ["Yes", "No"], "duration_minute": 10080}}
+    # {"type": "post", "content": {"content": "Hello+Twitter%21"}}
+    # images are backreferenced
     content = Column(String)
     creation_date = Column(Date)
     scheduling_date = Column(Date)
@@ -110,8 +114,11 @@ class Answer(Base):
     __tablename__ = "answer"
     __table_args__ = {"schema": "socialcampaigns"}
 
-    id = Column(String, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     post = Column(Integer, ForeignKey("socialcampaigns.post.id"))
+    # Examples
+    # {"content": {"Human dignity": 1, "Truthfulness": 5}, "duration_minute": 10079, "date": "2024-02-01T11:21:11.130000+00:00", "status": "open", "poll_options": [{"title": "Human dignity", "votes_count": 1}, {"title": "Piety", "votes_count": 0}, {"title": "Justice", "votes_count": 0}, {"title": "Truthfulness", "votes_count": 5}], "total": 6}
+    # {"content": "<p>None of the above.</p>"}
     content = Column(Text)
     author = Column(String)
     id_on_network = Column(String)

@@ -23,6 +23,7 @@ SET row_security = off;
 CREATE SCHEMA socialcampaigns;
 
 
+-- User also defined in ./backend/settings and docker-compose.yml
 ALTER SCHEMA socialcampaigns OWNER TO postgres;
 
 --
@@ -64,7 +65,7 @@ CREATE TABLE socialcampaigns.answer (
     author text,
     id_on_network text,
     publication_date date,
-    reply_to int
+    reply_to text
 );
 
 

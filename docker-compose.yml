@@ -2,25 +2,25 @@ version: '3.9'
 
 services:
   postgres:
-    container_name: islab_tweet_db
-    image: postgres:15.1 # 14.5
+    container_name: socialmediaharvester_db
+    image: postgres:15.1
     environment:
-      - POSTGRES_DB=islab_tweet
+      - POSTGRES_DB=socialmediaharvester
+      # User also defined in ./backend/settings and ./db/init
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=xxxxxx
-      - POSTGRES_HOST_AUTH_METHOD=trust
+      #- POSTGRES_HOST_AUTH_METHOD=trust
     volumes:
       - ./db/data:/var/lib/postgresql/data/
       - ./db/init:/docker-entrypoint-initdb.d/:ro
     ports:
       - 5532:5432
-    # network_mode: host
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -d islab_tweet -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -d socialmediaharvester -U postgres"]
 
-  tweetpy:
-    container_name: islab_tweet_app
+  fastapi:
+    container_name: socialmediaharvester_app
     build:
       context: .
       dockerfile: Dockerfile
@@ -50,25 +50,27 @@ services:
         condition: service_healthy
 
   nginx:
-    container_name: islab_tweet_web
+    container_name: socialmediaharvester_web
     image: nginx:1.25-alpine-slim
     ports:
       - 8091:80
     volumes: 
-      - ./dist:/usr/share/nginx/html:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "wget -nv -t1 --spider http://localhost || exit 1"]
 
   # https://hub.docker.com/r/trammel/docker-with-supercronic
   cron:
-    container_name: islab_tweet_cron
+    container_name: socialmediaharvester_cron
     image: trammel/docker-with-supercronic
     environment:
       # - CRONTAB=* * * * * echo "hello" 
       - TZ=Rome/Italy
-      - CRONTAB=*   8   *   *   *   curl http://$USER@$HOST:8090/post/flush?network_id=1
+      - CRONTAB=*   8   *   *   *   curl http://$USER@fastapi:8090/post/flush?snet_id=1
+    volumes: 
+      - ./frontend/dist:/usr/share/nginx/html:ro
     depends_on:
-      tweetpy:
+      fastapi:
         condition: service_healthy
     

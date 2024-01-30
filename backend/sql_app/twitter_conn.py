@@ -1,3 +1,5 @@
+"""OBSOLETE: Twitter/X API has been disabled"""
+
 from typing import Dict
 
 import tweepy  # type: ignore
@@ -9,9 +11,6 @@ logger = logging.getLogger()
 
 class TwitterEndpoint:
     """Currently unaware of own Twitter handle"""
-
-    s_network = 1
-    """Twitter endpoints interface"""
 
     def __init__(self, settings_map: Dict[str, str]):
         self.settings_map = settings_map

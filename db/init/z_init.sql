@@ -7,13 +7,17 @@ INSERT INTO socialcampaigns.appuser VALUES
 INSERT INTO socialcampaigns.appuser VALUES
 ('wittertest55555', 'password_ignored', TRUE);
 
+INSERT INTO socialcampaigns.social_network VALUES (0, 'DUMMY');
 INSERT INTO socialcampaigns.social_network VALUES (1, 'TWITTER');
+INSERT INTO socialcampaigns.social_network VALUES (2, 'MASTODON');
 
 INSERT INTO socialcampaigns.status VALUES
 (1, 'Created'),
 (2, 'Scheduled'),
 (3, 'Published'),
 (4, 'Deleted');
+
+-- TWITTER
 
 INSERT INTO socialcampaigns.setting VALUES
 (1, 'IslabUnimi', 'api_key', ''),
@@ -41,4 +45,12 @@ INSERT INTO socialcampaigns.setting VALUES
 (1, 'wittertest55555', 'client_ID', ''),
 (1, 'wittertest55555', 'client_Secret', ''),
 (1, 'wittertest55555', 'bearer_token', '');
+
+-- MASTODON
+
+INSERT INTO socialcampaigns.setting VALUES
+(2, 'IslabUnimi', 'instance', ''),
+(2, 'IslabUnimi', 'email', ''),
+(2, 'IslabUnimi', 'password', ''),
+(2, 'IslabUnimi', 'account_id', '');
 

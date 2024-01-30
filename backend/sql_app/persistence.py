@@ -30,11 +30,11 @@ def get_users():
     return db.query(models.AppUser).all()
 
 
-def get_network_name(network_id: int):
+def get_network_name(snet_id: int = 2):
     db = SessionLocal()
     return (
         db.query(models.Social_Network.s_name)
-        .filter(models.Social_Network.id == network_id)
+        .filter(models.Social_Network.id == snet_id)
         .first()
     )
 
@@ -248,7 +248,7 @@ def update_setting(setting: schemas.SettingUpdate):
 
 
 # GET
-def get_settings(uname_on_snet: str, snet_id: int = 1):
+def get_settings(uname_on_snet: str, snet_id: int = 2):
     db = SessionLocal()
     query = []
     query = (
@@ -305,11 +305,11 @@ def get_post_by_id(post_id: int) -> Optional[models.Post]:
     return db.query(models.Post).filter(models.Post.id == post_id).first()
 
 
-def get_post_by_status(
-    user: str = "", status: Optional[int] = None
+def get_posts_by_status(
+    user: str = "", status: Optional[int] = None, snet_id: int = 2
 ) -> List[models.Post]:
     db = SessionLocal()
-    q = db.query(models.Post)
+    q = db.query(models.Post).filter(models.Post.s_network == snet_id)
     if user:
         q = q.filter(models.Post.author == user)
     if status:
@@ -319,7 +319,7 @@ def get_post_by_status(
 
 
 # get all post senza filtro con max visualizzazione di 10
-def get_post() -> List[models.Post]:
+def get_posts() -> List[models.Post]:
     db = SessionLocal()
     return db.query(models.Post).filter(models.Post.status == 2).all()
 
@@ -340,7 +340,7 @@ def create_post_social_user(
     user: str,
     pathimages: List[str] = [],
     sched_date: Optional[date] = None,
-    s_net: int = 1,
+    s_net: int = 2,
 ):
     db = SessionLocal()
     # 1) se c'è immagine prima devo inseire path immagine nel db
@@ -382,7 +382,7 @@ def reflect_post_social_user(
     pathimage: List[str],
     publ_date: date,
     user: str,
-    s_net: int = 1,
+    s_net: int = 2,
 ):
     db = SessionLocal()
 
@@ -446,11 +446,15 @@ def update_post(
 
 
 # DELETE post ---
-def delete_post(idpost: int):
+def delete_post(idpost: int, snet_id: int = 2):
     db = SessionLocal()
     post = (
         db.query(models.Post)
-        .filter(models.Post.id == idpost, models.Post.status.in_([1, 2]))
+        .filter(
+            models.Post.id == idpost,
+            models.Post.status.in_([1, 2]),
+            models.Post.s_network == snet_id,
+        )
         .first()
     )
 
@@ -476,10 +480,11 @@ def delete_post(idpost: int):
 def insert_answer_post(
     idpost: int,
     content: str,
-    author: str,
     id_on_network: str,
+    author: Optional[str] = None,
     publication_date: Optional[date] = None,
     reply_to=None,
+    snet_id: int = 2,
 ):
     db = SessionLocal()
     post = (
@@ -513,7 +518,8 @@ def insert_answer_post(
         return {"status": "failure", "text": str(err_msg)}
 
 
-def get_answer_post(idpost: int):
+def get_answers_for_post(idpost: int):
+    """Gets all responses to a post."""
     db = SessionLocal()
     return db.query(models.Answer).filter(models.Answer.post == idpost).all()
 
@@ -531,7 +537,7 @@ def delete_answer(idpost: int) -> Dict[str, str]:
 
 # Put aggiornameto parziale solo lo stato e id del post su twitter     date.today()
 def update_post_status_id_on_network(
-    idpost: int, status: int, id_on_net: str
+    idpost: int, status: int, id_on_net: str, snet_id: int
 ) -> Dict[str, str]:
     db = SessionLocal()
     db.query(models.Post).filter(models.Post.id == idpost).update(
@@ -539,6 +545,7 @@ def update_post_status_id_on_network(
             "status": int(status),
             "id_on_network": id_on_net,
             "publication_date": str(date.today()),
+            "s_network": snet_id,
         },
         synchronize_session=False,
     )
