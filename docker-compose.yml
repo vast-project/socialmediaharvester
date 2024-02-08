@@ -41,7 +41,7 @@ services:
       - 8090:8000
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "wget -nv -t1 http://localhost:8000 || exit 1"]
+      test: ["CMD-SHELL", "wget -nv -t1 --spider http://localhost:8000 || exit 1"]
     # command: sh -c "tail -f /dev/null"
     working_dir: /app
     # command: sh -c "uvicorn main:app --host 0.0.0.0 --reload"
